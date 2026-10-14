@@ -1,1 +1,15 @@
-{}
+{
+  "items": {
+    "a-light-in-the-attic": {
+      "consecutive_failures": 0,
+      "error_alert_sent": false,
+      "last_checked": "2026-10-14T17:19:19Z",
+      "last_currency": "GBP",
+      "last_error": null,
+      "last_in_stock": true,
+      "last_price": "51.77",
+      "price_below_active": false
+    }
+  },
+  "last_digest_date": null
+}
