@@ -25,7 +25,6 @@ class Alert:
     old_price: Decimal | None = None
     currency: str | None = None
     target_price: Decimal | None = None
-    drop_percent: Decimal | None = None
     in_stock: bool | None = None
     error: str | None = None
     failures: int = 0
@@ -33,9 +32,17 @@ class Alert:
 
     @property
     def change_percent(self) -> Decimal | None:
+        """Change from the last checked price, in percent (negative = cheaper)."""
         if self.price is None or not self.old_price:
             return None
         return (self.price - self.old_price) / self.old_price * 100
+
+    @property
+    def target_percent(self) -> Decimal | None:
+        """Price relative to the target, in percent (negative = below target)."""
+        if self.price is None or not self.target_price:
+            return None
+        return (self.price - self.target_price) / self.target_price * 100
 
 
 @dataclass(frozen=True)
@@ -73,23 +80,13 @@ def evaluate(item: Item, prev: ItemState, result: FetchResult) -> Evaluation:
             elif reset:
                 changes["price_below_active"] = False
 
-        if "drop_percent" in item.notify_on and item.drop_percent is not None:
-            fire, baseline = check_drop_percent(price, prev.drop_baseline_price, item.drop_percent)
-            if fire:
-                alerts.append(Alert(
-                    kind="drop_percent", price=price, old_price=prev.drop_baseline_price,
-                    currency=currency, drop_percent=item.drop_percent, target_price=item.target_price,
-                    in_stock=in_stock, on_sent={"drop_baseline_price": price},
-                ))
-            elif baseline != prev.drop_baseline_price:
-                changes["drop_baseline_price"] = baseline
 
     if result.in_stock is not None:
         if "back_in_stock" in item.notify_on and check_back_in_stock(result.in_stock, prev.last_in_stock):
             # last_in_stock stays False until the email is sent, so a failed send retries.
             alerts.append(Alert(
                 kind="back_in_stock", price=changes.get("last_price", prev.last_price),
-                currency=currency, target_price=item.target_price, in_stock=True,
+                old_price=prev.last_price, currency=currency, target_price=item.target_price, in_stock=True,
                 on_sent={"last_in_stock": True},
             ))
         else:
@@ -116,24 +113,6 @@ def check_price_below(price: Decimal, target: Decimal, active: bool) -> tuple[bo
     if price <= target:
         return (not active, False)
     return (False, active)
-
-
-def check_drop_percent(
-    price: Decimal, baseline: Decimal | None, drop_percent: Decimal
-) -> tuple[bool, Decimal]:
-    """Returns (fire, new_baseline_if_not_firing).
-
-    The first observed price becomes the baseline (never fires). A drop of at least
-    `drop_percent` below the baseline fires; the caller then moves the baseline to
-    the new price once the alert is sent. A rise above the baseline moves it up.
-    """
-    if baseline is None:
-        return (False, price)
-    if price <= baseline * (1 - drop_percent / Decimal(100)):
-        return (True, baseline)
-    if price > baseline:
-        return (False, price)
-    return (False, baseline)
 
 
 def check_back_in_stock(in_stock: bool, last_in_stock: bool | None) -> bool:

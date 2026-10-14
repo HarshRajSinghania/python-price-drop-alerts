@@ -10,8 +10,8 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-NotifyKind = Literal["price_below", "drop_percent", "back_in_stock"]
-AlertKind = Literal["price_below", "drop_percent", "back_in_stock", "watcher_error"]
+NotifyKind = Literal["price_below", "back_in_stock"]
+AlertKind = Literal["price_below", "back_in_stock", "watcher_error"]
 Source = Literal["json-ld", "selector"]
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -61,7 +61,6 @@ class Item(BaseModel):
     stock_selector: str | None = None
     out_of_stock_text: list[str] = Field(default_factory=lambda: ["out of stock", "sold out"])
     target_price: Decimal | None = Field(default=None, gt=0)
-    drop_percent: Decimal | None = Field(default=None, gt=0, lt=100)
     notify_on: list[NotifyKind] | None = None
     recipients: list[str] | None = None
 
@@ -94,23 +93,13 @@ class Item(BaseModel):
     @model_validator(mode="after")
     def _rules(self) -> Item:
         if self.notify_on is None:
-            # Sensible default: every rule the item has the numbers for.
-            self.notify_on = [
-                kind
-                for kind, needed in (
-                    ("price_below", self.target_price),
-                    ("drop_percent", self.drop_percent),
-                    ("back_in_stock", True),
-                )
-                if needed is not None
-            ]
+            # Sensible default: a price alert if there's a target, plus stock alerts.
+            self.notify_on = ["price_below", "back_in_stock"] if self.target_price is not None else ["back_in_stock"]
         if not self.notify_on:
-            raise ValueError("notify_on: must list at least one of price_below, drop_percent, back_in_stock")
+            raise ValueError("notify_on: must list at least one of price_below, back_in_stock")
         self.notify_on = list(dict.fromkeys(self.notify_on))
         if "price_below" in self.notify_on and self.target_price is None:
             raise ValueError("target_price: required when notify_on includes price_below")
-        if "drop_percent" in self.notify_on and self.drop_percent is None:
-            raise ValueError("drop_percent: must be > 0 when notify_on includes drop_percent")
         return self
 
 

@@ -4,7 +4,6 @@ from price_alerts.models import FetchResult, Item
 from price_alerts.rules import (
     apply_sent,
     check_back_in_stock,
-    check_drop_percent,
     check_price_below,
     evaluate,
 )
@@ -39,13 +38,6 @@ def test_check_price_below():
     assert check_price_below(D("100"), D("100"), active=False) == (True, False)
     assert check_price_below(D("90"), D("100"), active=True) == (False, False)
     assert check_price_below(D("101"), D("100"), active=True) == (False, True)
-
-
-def test_check_drop_percent():
-    assert check_drop_percent(D("100"), None, D("10")) == (False, D("100"))
-    assert check_drop_percent(D("95"), D("100"), D("10")) == (False, D("100"))
-    assert check_drop_percent(D("90"), D("100"), D("10")) == (True, D("100"))
-    assert check_drop_percent(D("120"), D("100"), D("10")) == (False, D("120"))
 
 
 def test_check_back_in_stock():
@@ -89,35 +81,30 @@ def test_price_below_not_marked_when_send_fails():
     assert evaluate(it, ev.state, ok("250")).alerts[0].kind == "price_below"
 
 
-# --- drop_percent ---------------------------------------------------------------------------
+# --- percentages reported in emails ----------------------------------------------------------
 
 
-def test_drop_percent_baseline_behaviour():
-    it = item(drop_percent=10, notify_on=["drop_percent"])
-    s = ItemState()
-
-    s, kinds = step(it, s, ok("100"))
-    assert kinds == [] and s.drop_baseline_price == D("100")  # never on first observation
-    s, kinds = step(it, s, ok("95"))
-    assert kinds == [] and s.drop_baseline_price == D("100")
-    s, kinds = step(it, s, ok("90"))
-    assert kinds == ["drop_percent"] and s.drop_baseline_price == D("90")
-    s, kinds = step(it, s, ok("90"))
-    assert kinds == []
-    s, kinds = step(it, s, ok("85"))
-    assert kinds == []  # only 5.6% below the new baseline
-    s, kinds = step(it, s, ok("120"))
-    assert kinds == [] and s.drop_baseline_price == D("120")  # rise moves baseline up
-    s, kinds = step(it, s, ok("108"))
-    assert kinds == ["drop_percent"]
-
-
-def test_drop_percent_alert_reports_baseline_as_old_price():
-    it = item(drop_percent=20, notify_on=["drop_percent"])
-    ev = evaluate(it, ItemState(last_price=D("240"), drop_baseline_price=D("250")), ok("199"))
+def test_price_alert_reports_drop_from_target_and_from_last_price():
+    it = item(target_price=200, notify_on=["price_below"])
+    ev = evaluate(it, ItemState(last_price=D("249.00")), ok("199"))
     alert = ev.alerts[0]
-    assert alert.old_price == D("250") and alert.price == D("199.00")
-    assert round(alert.change_percent) == -20
+    assert (alert.price, alert.old_price, alert.target_price) == (D("199.00"), D("249.00"), D("200"))
+    assert round(alert.change_percent, 1) == D("-20.1")
+    assert round(alert.target_percent, 1) == D("-0.5")
+
+
+def test_percentages_are_none_without_reference():
+    it = item(target_price=200, notify_on=["price_below"])
+    alert = evaluate(it, ItemState(), ok("150")).alerts[0]
+    assert alert.old_price is None and alert.change_percent is None
+    assert alert.target_percent == D("-25")
+
+
+def test_big_drop_above_target_sends_nothing():
+    it = item(target_price=200)
+    assert it.notify_on == ["price_below", "back_in_stock"]
+    s, kinds = step(it, ItemState(last_price=D("250.00")), ok("220"))  # -12%, but above target
+    assert kinds == []
 
 
 # --- back_in_stock --------------------------------------------------------------------------
@@ -143,6 +130,12 @@ def test_back_in_stock_not_from_unknown():
     it = item(notify_on=["back_in_stock"])
     _, kinds = step(it, ItemState(last_in_stock=None), ok("10", in_stock=True))
     assert kinds == []
+
+
+def test_back_in_stock_alert_carries_prices():
+    it = item(target_price=200, notify_on=["back_in_stock"])
+    alert = evaluate(it, ItemState(last_price=D("220.00"), last_in_stock=False), ok("210", in_stock=True)).alerts[0]
+    assert (alert.old_price, alert.price, alert.target_price) == (D("220.00"), D("210.00"), D("200"))
 
 
 def test_back_in_stock_retries_if_not_sent():

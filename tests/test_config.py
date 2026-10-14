@@ -16,8 +16,7 @@ items:
   - name: Example Headphones
     url: https://example.com/p/1
     target_price: 199.99
-    drop_percent: 10
-    notify_on: [price_below, drop_percent, back_in_stock]
+    notify_on: [price_below, back_in_stock]
 """
 
 
@@ -60,14 +59,9 @@ def test_price_below_requires_target_price(tmp_path):
     assert "item 'Example Headphones'" in msg and "target_price: required" in msg
 
 
-def test_drop_percent_must_be_positive(tmp_path):
-    msg = errors_for(tmp_path, VALID.replace("drop_percent: 10", "drop_percent: 0"))
-    assert "item 'Example Headphones': drop_percent:" in msg and "greater than 0" in msg
-
-
-def test_drop_percent_required_for_rule(tmp_path):
-    msg = errors_for(tmp_path, VALID.replace("    drop_percent: 10\n", ""))
-    assert "drop_percent: must be > 0" in msg
+def test_unknown_notify_on_kind_is_rejected(tmp_path):
+    msg = errors_for(tmp_path, VALID.replace("[price_below, back_in_stock]", "[price_below, price_drop]"))
+    assert "item 'Example Headphones': notify_on:" in msg
 
 
 def test_duplicate_names(tmp_path):
@@ -76,7 +70,7 @@ def test_duplicate_names(tmp_path):
 
 
 def test_unknown_field_is_reported(tmp_path):
-    msg = errors_for(tmp_path, VALID.replace("    drop_percent: 10\n", "    drop_percent: 10\n    selectr: .x\n"))
+    msg = errors_for(tmp_path, VALID.replace("    target_price: 199.99\n", "    target_price: 199.99\n    selectr: .x\n"))
     assert "item 'Example Headphones': selectr:" in msg
 
 
@@ -95,8 +89,8 @@ def test_no_items_and_invalid_yaml(tmp_path):
 
 
 def test_notify_on_defaults_to_configured_rules(tmp_path):
-    wl = load_watchlist(write(tmp_path, VALID.replace("    notify_on: [price_below, drop_percent, back_in_stock]\n", "")))
-    assert wl.items[0].notify_on == ["price_below", "drop_percent", "back_in_stock"]
+    wl = load_watchlist(write(tmp_path, VALID.replace("    notify_on: [price_below, back_in_stock]\n", "")))
+    assert wl.items[0].notify_on == ["price_below", "back_in_stock"]
 
 
 def test_slugify():

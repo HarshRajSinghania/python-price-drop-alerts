@@ -19,8 +19,7 @@ def headphones(**kwargs):
         "name": "Example Headphones",
         "url": URL,
         "target_price": 200,
-        "drop_percent": 10,
-        "notify_on": ["price_below", "drop_percent", "back_in_stock"],
+        "notify_on": ["price_below", "back_in_stock"],
     }
     data.update(kwargs)
     return data
@@ -63,7 +62,11 @@ def test_price_below_dedup_across_runs(data_dir, fetcher, mailer, clock):
         sent_per_run.append(len(mailer.sent) - before)
         clock.advance(hours=6)
     assert sent_per_run == [0, 1, 0, 0, 0, 1]
-    assert mailer.sent[0].subject == "Price drop: Example Headphones 249.00 → 199.00 (-20.1%)"
+    assert mailer.sent[0].subject == (
+        "Price drop: Example Headphones 249.00 → 199.00 (-20.1%), 0.5% below target 200.00"
+    )
+    assert "Drop from target: 0.5% (1.00 EUR below the 200.00 EUR target)" in mailer.sent[0].text
+    assert "Drop from last price: 20.1% (249.00 EUR → 199.00 EUR)" in mailer.sent[0].text
 
 
 def test_back_in_stock_email(data_dir, fetcher, mailer, clock):
@@ -110,14 +113,13 @@ def test_every_email_has_the_right_category(data_dir, fetcher, mailer, clock):
     fetcher.pages = {URL: product_page("300.00", "OutOfStock")}
     for _ in range(3):  # Broken fails 3 times -> watcher-error
         go(wl, data_dir, fetcher, mailer, clock)
-    fetcher.pages[URL] = product_page("180.00", "InStock")  # price_below + drop_percent + back_in_stock
+    fetcher.pages[URL] = product_page("180.00", "InStock")  # price_below + back_in_stock
     go(wl, data_dir, fetcher, mailer, clock, digest=True)
 
     by_kind = {m.kind: m.category for m in mailer.sent}
     assert by_kind == {
         "watcher_error": "watcher-error",
         "price_below": "price-alert",
-        "drop_percent": "price-alert",
         "back_in_stock": "stock-alert",
         "digest": "digest",
     }

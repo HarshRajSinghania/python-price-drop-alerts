@@ -21,13 +21,13 @@ A free price tracker that runs on GitHub Actions: list the products you care abo
 
 | Price drop | Back in stock | Daily digest |
 | --- | --- | --- |
-| <img src="docs/email-price-drop.png" alt="Price drop email: Example Headphones 249.00 EUR to 199.00 EUR, -20.1%, target 200.00 EUR" width="260"> | <img src="docs/email-back-in-stock.png" alt="Back in stock email for Example Headphones" width="260"> | <img src="docs/email-digest.png" alt="Daily digest email with a table of items, prices, 24-hour change, stock and status" width="260"> |
+| <img src="docs/email-price-drop.png" alt="Price drop email: Example Headphones at 199.00 EUR, 0.5% below the 200.00 EUR target and 20.1% below the last price of 249.00 EUR" width="260"> | <img src="docs/email-back-in-stock.png" alt="Back in stock email for Example Headphones with drop from target and drop from last price" width="260"> | <img src="docs/email-digest.png" alt="Daily digest email with a table of items, prices, 24-hour change, stock and status" width="260"> |
 
 The screenshots are `src/price_alerts/templates.py` rendered with sample data. Every email also has a plain-text version. A real run on GitHub Actions looks like this:
 
 ```text
 INFO    A Light in the Attic: 51.77 GBP, in stock (via selector)
-INFO    Sent price-alert email to you@example.com: Price alert: A Light in the Attic is 51.77 (target 60.00)
+INFO    Sent price-alert email to you@example.com: Price alert: A Light in the Attic is 51.77, 13.7% below target 60.00
 
 Summary
   Items checked: 1
@@ -80,7 +80,7 @@ sequenceDiagram
         R->>S: robots.txt check, then GET page (delay per host, 1 retry)
         alt price or stock found
             R->>R: JSON-LD first, CSS selector fallback
-            R->>R: rules: price_below, drop_percent, back_in_stock
+            R->>R: rules: price_below, back_in_stock
         else fetch or parse failed
             R->>R: failures + 1, keep the last known price
         end
@@ -97,7 +97,8 @@ sequenceDiagram
 ## Features
 
 - **One email per event.** Each alert fires once, when its condition *becomes* true, and stays quiet until the condition resets. Unchanged prices mean no email and no commit.
-- **Three alert types.** Get an email when the price reaches a target price, when it drops a set percentage, or when the item is back in stock. Each item can use any combination.
+- **Two alert types.** Get an email when the price is at or below your target price, or when the item is back in stock. Each item can use either or both.
+- **Every email shows how good the deal is.** Price and stock emails include the **drop from your target** (for example `0.5% (1.00 EUR below the 200.00 EUR target)`) and the **drop from the last price** (for example `20.1% (249.00 EUR → 199.00 EUR)`).
 - **Reads structured data first.** It parses schema.org `Product` JSON-LD, which most shops publish for Google, before falling back to your CSS selector. It handles:
   - `@graph`, top-level lists, and `@type` given as a list
   - `Offer`, offer lists and `AggregateOffer`
@@ -155,29 +156,36 @@ Every rule fires **once when its condition becomes true** and stays quiet until 
 | Rule | Fires when | Resets when |
 | --- | --- | --- |
 | `price_below` | price ≤ `target_price`. This can fire on the first check. | price goes back above `target_price` |
-| `drop_percent` | price ≤ baseline × (1 − `drop_percent`/100). The baseline is the first price seen, which never fires. | After an alert, the baseline moves to the new price. If the price rises above the baseline, the baseline moves up too. |
 | `back_in_stock` | stock changes from out of stock to in stock. Not on the first check, and not from "unknown". | the item goes out of stock again |
 | watcher error | 3 failed checks in a row | the next successful check |
 
-Example with `target_price: 200` and `drop_percent: 10`:
+There is no separate percentage setting: an email is only sent when the price is at or below `target_price`. Instead, every price and stock email reports two numbers:
+
+| In the email | Compared with | Example |
+| --- | --- | --- |
+| **Drop from target** | your `target_price` | `0.5% (1.00 EUR below the 200.00 EUR target)` |
+| **Drop from last price** | the price at the previous check | `20.1% (249.00 EUR → 199.00 EUR)` |
+
+If there is no drop, the email says so: `none: 5% above the 200.00 EUR target`, `0% (unchanged at 199.00 EUR)`, `none: up 5% (190.00 EUR → 199.50 EUR)`, or `n/a (first check)`.
+
+Example with `target_price: 200`:
 
 | Run | Price | Stock | Emails |
 | --- | --- | --- | --- |
-| 1 | 249.00 | in stock | none: baselines recorded |
+| 1 | 249.00 | in stock | none: price recorded, above target |
 | 2 | 249.00 | in stock | none: nothing changed, no commit either |
-| 3 | 199.00 | in stock | **Price drop** (`price_below`) and **Price drop** (`drop_percent`, -20%) |
-| 4 | 189.00 | in stock | none: already below target, and only 5% below the new baseline |
+| 3 | 199.00 | in stock | **Price drop**: 0.5% below target, 20.1% below last price |
+| 4 | 189.00 | in stock | none: still below target, you were already told |
 | 5 | 189.00 | out of stock | none |
-| 6 | 189.00 | in stock | **Back in stock** |
-| 7 | 210.00 | in stock | none: `price_below` re-arms |
-| 8 | 195.00 | in stock | **Price drop** (`price_below`) |
+| 6 | 189.00 | in stock | **Back in stock**: 5.5% below target, 0% from last price |
+| 7 | 210.00 | in stock | none: above target, so `price_below` re-arms |
+| 8 | 195.00 | in stock | **Price drop**: 2.5% below target, 7.1% below last price |
 
 Every email has a Mailtrap category, so the types are easy to tell apart in Mailtrap stats:
 
 | Email | Stream | Category | Subject |
 | --- | --- | --- | --- |
-| Target price reached | Transactional | `price-alert` | `Price drop: Example Headphones 249.00 → 199.00 (-20.1%)` |
-| Dropped by `drop_percent` | Transactional | `price-alert` | `Price drop: Example Headphones 249.00 → 199.00 (-20.1%)` |
+| At or below target | Transactional | `price-alert` | `Price drop: Example Headphones 249.00 → 199.00 (-20.1%), 0.5% below target 200.00` |
 | Back in stock | Transactional | `stock-alert` | `Back in stock: Example Headphones` |
 | 3 failed checks in a row | Transactional | `watcher-error` | `Watcher error: Example Headphones failed 3 checks in a row` |
 | Daily digest | Transactional | `digest` | `Price digest 2026-10-14: 3 items` |
@@ -268,9 +276,8 @@ items:
     selector: ".price"                # optional CSS fallback for price
     stock_selector: ".availability"   # optional
     out_of_stock_text: ["out of stock", "sold out"]  # optional
-    target_price: 199.99              # needed for price_below
-    drop_percent: 10                  # needed for drop_percent
-    notify_on: [price_below, drop_percent, back_in_stock]
+    target_price: 199.99              # email when the price is at or below this
+    notify_on: [price_below, back_in_stock]
     recipients: [you@example.com]     # optional, falls back to default_recipients
 ```
 
@@ -286,8 +293,7 @@ items:
 | `url` | An `http(s)` product page. |
 | `selector`, `stock_selector`, `out_of_stock_text` | CSS fallback for the price and stock text. The text matching ignores case. |
 | `target_price` | Required for `price_below`. |
-| `drop_percent` | Required for `drop_percent`. Must be greater than 0 and less than 100. |
-| `notify_on` | Any of `price_below`, `drop_percent`, `back_in_stock`. Default: every rule the item has numbers for, plus `back_in_stock`. |
+| `notify_on` | `price_below`, `back_in_stock`, or both. Default: both if `target_price` is set, otherwise `back_in_stock`. |
 | `recipients` | Overrides `default_recipients` for this item. |
 
 ### Environment
@@ -331,7 +337,7 @@ python -m price_alerts [--watchlist watchlist.yaml] [--data-dir data] [--dry-run
 
 Both files are committed by the workflow as `github-actions[bot]` with `chore: update price data [skip ci]`, and only when something changed.
 
-- **`data/state.json`.** Per item: `last_price`, `last_currency`, `last_in_stock`, `consecutive_failures`, `error_alert_sent`, `last_error`, `price_below_active`, `drop_baseline_price` and `last_checked` (the last check that changed something), plus a top-level `last_digest_date`. It's written atomically (temp file + replace) with sorted keys.
+- **`data/state.json`.** Per item: `last_price`, `last_currency`, `last_in_stock`, `consecutive_failures`, `error_alert_sent`, `last_error`, `price_below_active` and `last_checked` (the last check that changed something), plus a top-level `last_digest_date`. It's written atomically (temp file + replace) with sorted keys.
 - **`data/history.csv`.** `timestamp,item_id,name,price,currency,in_stock,source`, with one row each time the price or stock changed. Open it in a spreadsheet to chart prices.
 
 To start over, set `state.json` to `{}` and keep only the header line of `history.csv`.
@@ -352,7 +358,7 @@ To start over, set `state.json` to `{}` and keep only the header line of `histor
 │   ├── fetch.py              httpx fetcher: User-Agent, per-host delay, retry, robots.txt
 │   ├── extract.py            JSON-LD Product parsing, CSS selector fallback
 │   ├── parse_price.py        price text → Decimal + currency
-│   ├── rules.py              price_below, drop_percent, back_in_stock, failures (pure)
+│   ├── rules.py              price_below, back_in_stock, failures (pure)
 │   ├── state.py  history.py  state.json and history.csv
 │   ├── templates.py          subject, plain text and HTML for every email
 │   ├── mailer.py             Mailer protocol, MailtrapMailer
@@ -372,12 +378,13 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-The suite has 99 tests and needs no credentials or network. It covers:
+The suite has 111 tests and needs no credentials or network. It covers:
 
 - **Extraction:** every JSON-LD variant (simple, `@graph`, top-level list, offer list, `AggregateOffer`, out of stock) and the mapping of every availability value.
 - **Fallbacks:** the CSS selector when JSON-LD is missing or broken, and a page with nothing parseable.
 - **Price parsing:** a table of real-world formats, with garbage returning `None`.
-- **Alert rules:** `price_below` fires once and re-arms, the `drop_percent` baseline, and `back_in_stock` only on a change from out of stock to in stock.
+- **Alert rules:** `price_below` fires once and re-arms, and `back_in_stock` fires only on a change from out of stock to in stock.
+- **Email content:** the drop from the target and from the last price, including the at-target, above-target, first-check and price-went-up cases.
 - **Acceptance:** two runs with unchanged prices send **zero** emails and leave `state.json` and `history.csv` byte-identical.
 - **Failures:** 1 and 2 failures send nothing, the 3rd sends exactly one watcher error, the 4th sends none, and a success resets.
 - **Email categories:** every email has the correct category, and values are HTML-escaped.
@@ -403,7 +410,7 @@ The suite has 99 tests and needs no credentials or network. It covers:
 
 ### How do I get an email when a product's price drops?
 
-Add the product to `watchlist.yaml` with a `target_price` (to be told when it reaches your price) or a `drop_percent` (to be told when it falls by that much), and add your `MAILTRAP_API_TOKEN` as a repository secret. The scheduled workflow checks every 6 hours, reads the price from the page's schema.org data or your CSS selector, and emails you once through Mailtrap when the condition is met. See [Quick start](#quick-start).
+Add the product to `watchlist.yaml` with a `target_price`, and add your `MAILTRAP_API_TOKEN` as a repository secret. The scheduled workflow checks every 6 hours, reads the price from the page's schema.org data or your CSS selector, and emails you once through Mailtrap when the price is at or below your target. The email tells you how far below the target it is and how much it dropped since the last check. See [Quick start](#quick-start).
 
 ### How do I run a Python script on a schedule for free?
 
@@ -411,7 +418,7 @@ Use GitHub Actions with an `on: schedule` cron trigger, as [`.github/workflows/p
 
 ### How do I avoid sending the same alert twice?
 
-Store whether each condition already fired, and alert only when it changes from false to true. Here, `price_below_active`, `drop_baseline_price`, `last_in_stock` and `error_alert_sent` in `data/state.json` record that, and each resets only when its condition does. The flag is set only after the email is accepted, so a failed send is retried instead of lost. Write the state deterministically (sorted keys, no timestamps that change every run) so quiet runs change nothing. See [Alert rules](#alert-rules).
+Store whether each condition already fired, and alert only when it changes from false to true. Here, `price_below_active`, `last_in_stock` and `error_alert_sent` in `data/state.json` record that, and each resets only when its condition does. The flag is set only after the email is accepted, so a failed send is retried instead of lost. Write the state deterministically (sorted keys, no timestamps that change every run) so quiet runs change nothing. See [Alert rules](#alert-rules).
 
 ### How do I send email from a Python script?
 

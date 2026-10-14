@@ -12,7 +12,7 @@ from .fetch import HttpFetcher
 from .mailer import MailtrapMailer
 from .runner import run
 
-EXIT_OK, EXIT_CONFIG, EXIT_SEND = 0, 1, 2
+EXIT_CONFIG, EXIT_SEND = 1, 2
 
 
 def build_parser() -> argparse.ArgumentParser:

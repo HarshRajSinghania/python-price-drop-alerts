@@ -13,7 +13,6 @@ from .state import money
 
 CATEGORIES = {
     "price_below": "price-alert",
-    "drop_percent": "price-alert",
     "back_in_stock": "stock-alert",
     "watcher_error": "watcher-error",
     "digest": "digest",
@@ -97,38 +96,69 @@ def build_alert_email(item: Item, alert: Alert, recipients: list[str], now: date
     )
 
 
+def _unsigned(value: Decimal) -> str:
+    text = fmt_percent(abs(value)).lstrip("+")
+    # 51.77 vs a 51.78 target is 0.02%: say "<0.1%" rather than a misleading "0%".
+    return "<0.1%" if text == "0%" and value != 0 else text
+
+
+def drop_from_target(alert: Alert) -> str:
+    """E.g. "0.5% (1.00 EUR below the 200.00 EUR target)"."""
+    cur, pct = alert.currency, alert.target_percent
+    target = fmt_price(alert.target_price, cur)
+    diff = alert.price - alert.target_price
+    if diff == 0:
+        return f"0% (exactly at the {target} target)"
+    if diff < 0:
+        return f"{_unsigned(pct)} ({fmt_price(-diff, cur)} below the {target} target)"
+    return f"none: {_unsigned(pct)} above the {target} target"
+
+
+def drop_from_last(alert: Alert) -> str:
+    """E.g. "20.1% (249.00 EUR → 199.00 EUR)"."""
+    cur = alert.currency
+    if alert.old_price is None:
+        return "n/a (first check)"
+    if alert.old_price == alert.price:
+        return f"0% (unchanged at {fmt_price(alert.price, cur)})"
+    moved = f"({fmt_price(alert.old_price, cur)} → {fmt_price(alert.price, cur)})"
+    if alert.price < alert.old_price:
+        return f"{_unsigned(alert.change_percent)} {moved}"
+    return f"none: up {_unsigned(alert.change_percent)} {moved}"
+
+
+def _price_facts(alert: Alert) -> list[tuple[str, str]]:
+    facts = [("Price", fmt_price(alert.price, alert.currency))]
+    if alert.target_price is not None:
+        facts.append(("Target price", fmt_price(alert.target_price, alert.currency)))
+        facts.append(("Drop from target", drop_from_target(alert)))
+    facts.append(("Drop from last price", drop_from_last(alert)))
+    return facts
+
+
 def _alert_content(item: Item, alert: Alert) -> tuple[str, str, list[tuple[str, str]]]:
     name, cur = item.name, alert.currency
-    pct = fmt_percent(alert.change_percent)
     facts: list[tuple[str, str]] = [("Product", name)]
 
-    if alert.kind in ("price_below", "drop_percent"):
-        new = fmt_price(alert.price)
-        if alert.old_price is not None and alert.old_price != alert.price:
-            subject = f"Price drop: {name} {fmt_price(alert.old_price)} → {new} ({pct})"
-            facts.append(("Price", f"{fmt_price(alert.old_price, cur)} → {fmt_price(alert.price, cur)}"))
-            facts.append(("Change", pct))
+    if alert.kind == "price_below":
+        new, target = fmt_price(alert.price), fmt_price(alert.target_price)
+        at_target = alert.price == alert.target_price
+        vs_target = f"at target {target}" if at_target else f"{_unsigned(alert.target_percent)} below target {target}"
+        if alert.old_price is not None and alert.price < alert.old_price:
+            subject = (f"Price drop: {name} {fmt_price(alert.old_price)} → {new} "
+                       f"({fmt_percent(alert.change_percent)}), {vs_target}")
         else:
-            subject = f"Price alert: {name} is {new}"
-            if alert.target_price is not None:
-                subject += f" (target {fmt_price(alert.target_price)})"
-            facts.append(("Price", fmt_price(alert.price, cur)))
-        if alert.kind == "price_below":
-            headline = f"{name} is at or below your target price"
-        else:
-            headline = f"{name} dropped {fmt_percent(alert.change_percent).lstrip('-')}"
-            facts.append(("Alert threshold", f"{fmt_percent(alert.drop_percent)} drop"))
-        if alert.target_price is not None:
-            facts.append(("Target price", fmt_price(alert.target_price, cur)))
+            subject = f"Price alert: {name} is {new}, {vs_target}"
+        headline = (f"{name} is at your target price" if at_target
+                    else f"{name} is {_unsigned(alert.target_percent)} below your target price")
+        facts += _price_facts(alert)
         facts.append(("Stock", fmt_stock(alert.in_stock)))
         return subject, headline, facts
 
     if alert.kind == "back_in_stock":
         facts.append(("Stock", "In stock"))
         if alert.price is not None:
-            facts.append(("Price", fmt_price(alert.price, cur)))
-        if alert.target_price is not None:
-            facts.append(("Target price", fmt_price(alert.target_price, cur)))
+            facts += _price_facts(alert)
         return f"Back in stock: {name}", f"{name} is back in stock", facts
 
     # watcher_error

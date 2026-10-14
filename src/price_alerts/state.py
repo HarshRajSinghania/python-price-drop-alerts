@@ -33,25 +33,22 @@ class ItemState:
     error_alert_sent: bool = False
     last_error: str | None = None
     price_below_active: bool = False
-    drop_baseline_price: Decimal | None = None
 
     def updated(self, **changes: Any) -> ItemState:
         return replace(self, **changes)
 
     def to_json(self) -> dict[str, Any]:
         data = asdict(self)
-        for key in ("last_price", "drop_baseline_price"):
-            if data[key] is not None:
-                data[key] = str(money(data[key]))
+        if data["last_price"] is not None:
+            data["last_price"] = str(money(data["last_price"]))
         return data
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> ItemState:
         known = {f.name for f in fields(cls)}
         values = {k: v for k, v in data.items() if k in known}
-        for key in ("last_price", "drop_baseline_price"):
-            if values.get(key) is not None:
-                values[key] = money(Decimal(str(values[key])))
+        if values.get("last_price") is not None:
+            values["last_price"] = money(Decimal(str(values["last_price"])))
         return cls(**values)
 
 
