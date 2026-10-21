@@ -1,4 +1,7 @@
-"""Command line: python -m price_alerts [--watchlist ...] [--data-dir ...] [--dry-run] [--only NAME] [-v]"""
+"""Command line: python -m price_alerts [--watchlist ...] [--data-dir ...] [--dry-run] [--only NAME] [-v]
+
+The dashboard is a subcommand: python -m price_alerts ui [--port 8765] [--open]
+"""
 
 from __future__ import annotations
 
@@ -30,7 +33,34 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_ui_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m price_alerts ui",
+        description="Open the local dashboard: add products, see price graphs and check on demand.",
+    )
+    parser.add_argument("--watchlist", default="watchlist.yaml", type=Path, help="path to watchlist.yaml")
+    parser.add_argument("--data-dir", default="data", type=Path, help="where state.json and history.csv live")
+    parser.add_argument("--host", default="127.0.0.1", help="address to listen on (default: 127.0.0.1, this machine only)")
+    parser.add_argument("--port", default=8765, type=int, help="port to listen on (default: 8765)")
+    parser.add_argument("--open", action="store_true", dest="open_browser", help="open the dashboard in your browser")
+    return parser
+
+
+def ui_main(argv: list[str]) -> int:
+    from .web.server import serve
+
+    args = build_ui_parser().parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(message)s", stream=sys.stderr)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    load_dotenv(Path(".env"))
+    return serve(args.watchlist, args.data_dir, host=args.host, port=args.port, open_browser=args.open_browser)
+
+
 def main(argv: list[str] | None = None) -> int:
+    raw = sys.argv[1:] if argv is None else argv
+    if raw and raw[0] == "ui":
+        return ui_main(raw[1:])
     args = build_parser().parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
