@@ -4,7 +4,7 @@
 
 # Price Drop and Back-in-Stock Email Alerts in Python (Mailtrap)
 
-A free price tracker that runs on GitHub Actions: list the products you care about in a YAML file and get one email when the price drops or the item is back in stock. Written in Python 3.12, it reads schema.org product data, remembers what it already told you, and sends alerts through the Mailtrap Email API. A local dashboard shows every price on a graph.
+A free price tracker that runs on GitHub Actions: list the products you care about in a YAML file and get one email when the price drops or the item is back in stock. Written in Python 3.12, it reads schema.org product data, remembers what it already told you, and sends alerts through the Mailtrap Email API. A local dashboard shows every price on a graph. Use it as a Python price tracker, a back-in-stock notifier or a web scraping alert template: no server, no database and no paid service, just a GitHub Actions cron job and transactional email.
 
 <p>
   <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776ab?logo=python&logoColor=white">
@@ -155,7 +155,7 @@ sequenceDiagram
 | HTML parsing | [selectolax](https://github.com/rushter/selectolax) (Lexbor backend) |
 | Config validation | [pydantic v2](https://docs.pydantic.dev/) |
 | Watchlist | YAML via PyYAML |
-| Email | [`mailtrap`](https://github.com/railsware/mailtrap-python) Python SDK, Transactional stream |
+| Email | [`mailtrap`](https://github.com/railsware/mailtrap-python) Python SDK (the official Mailtrap SDK for Python), Transactional stream |
 | Dashboard | Standard library `http.server`, server-rendered HTML and inline SVG charts, with no extra dependency |
 | Scheduler | GitHub Actions cron |
 | Tests | pytest |
@@ -598,6 +598,22 @@ Run `python -m price_alerts ui` and open a product, or open `/demo` for a sample
 Use a transactional email API rather than SMTP from a runner. With the official Mailtrap SDK (`pip install mailtrap`), create a client with your API token and send an `mt.Mail` with a sender on your verified domain, recipients, a subject, text and HTML, and a category for stats.
 
 The full code is under [Key integration points](#key-integration-points), and [`src/price_alerts/mailer.py`](src/price_alerts/mailer.py) wraps it behind a small `Mailer` interface so tests can use a fake.
+
+### How do I build a price tracker in Python?
+
+Fetch the product page with `httpx`, read the price from its schema.org `Product` JSON-LD (with a CSS selector as a fallback), parse it into a `Decimal`, compare it with your target price, and send an email through a transactional email API when it drops. Store the last price and which alerts were sent, so each alert fires once. This repo is a complete version of that.
+
+### How do I get a back-in-stock email alert?
+
+Read the product's `availability` from its schema.org data on every check, remember the last value, and email only when it changes from out of stock to in stock. Add `back_in_stock` to an item's `notify_on` list. See [Alert rules](#alert-rules).
+
+### How do I scrape a product price from JSON-LD or a CSS selector?
+
+Most shops publish schema.org JSON-LD for Google, which is more stable than page markup. Parse the `Offer` or `AggregateOffer` price and `availability` first, and fall back to a CSS selector when the page has none. This repo handles `@graph`, offer lists and many price formats such as `1.299,00 €` and `₹1,29,999`. See [Finding a CSS selector](#finding-a-css-selector).
+
+### How do I test a price alert without sending an email?
+
+Run a dry run. It fetches and evaluates everything, saves each email as HTML in `out/`, sends nothing and leaves `data/` untouched. The test suite also runs without credentials or network, using `httpx.MockTransport` and a fake mailer.
 
 ## License
 
