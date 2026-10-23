@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import Any, Iterator
+from typing import Any
 
 from selectolax.lexbor import LexborHTMLParser as HTMLParser
 

@@ -6,15 +6,22 @@ Fetcher, mailer and clock are injected so tests run without network or real emai
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Callable
 
 from .config import ConfigError
 from .extract import extract
 from .fetch import Fetcher, FetchError
-from .history import HistoryRow, append_history, has_changed, last_rows, price_at, read_history
+from .history import (
+    HistoryRow,
+    append_history,
+    has_changed,
+    last_rows,
+    price_at,
+    read_history,
+)
 from .mailer import Mailer
 from .models import EmailMessage, FetchResult, Item, Watchlist
 from .rules import apply_sent, evaluate
@@ -30,7 +37,7 @@ HISTORY_FILE = "history.csv"
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 @dataclass
@@ -85,7 +92,7 @@ def run(
     if mailer is None and not dry_run:
         raise ValueError("a mailer is required unless dry_run=True")
 
-    now = clock().astimezone(timezone.utc).replace(microsecond=0)
+    now = clock().astimezone(UTC).replace(microsecond=0)
     now_iso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     state_path, history_path = data_dir / STATE_FILE, data_dir / HISTORY_FILE
     try:

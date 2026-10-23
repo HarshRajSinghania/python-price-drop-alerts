@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff", "pip-audit"]
 
 [project.scripts]
 price-alerts = "price_alerts.cli:main"
@@ -30,3 +30,16 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-ra"
+
+[tool.ruff]
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+# E/F/W: pycodestyle + pyflakes, I: import order, B: bugbear, UP: modernise, S: bandit security checks
+select = ["E", "F", "W", "I", "B", "UP", "S"]
+# E501: long lines are left to the author. B905: zip() lengths are matched by construction in this code.
+ignore = ["E501", "B905"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]  # asserts are how pytest works; test tokens are dummy values

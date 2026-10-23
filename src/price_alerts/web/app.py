@@ -8,11 +8,11 @@ import logging
 import re
 import secrets
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Callable
 from urllib.parse import parse_qs, quote
 
 from pydantic import ValidationError
@@ -21,7 +21,7 @@ from ..config import ConfigError, get_api_token, load_watchlist
 from ..fetch import HttpFetcher
 from ..history import read_history
 from ..mailer import MailerError, MailtrapMailer
-from ..models import EmailMessage, Item, Watchlist, slugify
+from ..models import EmailMessage, Item, Watchlist
 from ..runner import HISTORY_FILE, STATE_FILE, RunSummary, run, utc_now
 from ..state import load_state, money
 from . import editor, views

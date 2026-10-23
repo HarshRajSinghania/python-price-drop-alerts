@@ -3,7 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from price_alerts.config import ConfigError, env_bool, get_api_token, load_dotenv, load_watchlist
+from price_alerts.config import (
+    ConfigError,
+    env_bool,
+    get_api_token,
+    load_dotenv,
+    load_watchlist,
+)
 from price_alerts.models import slugify
 
 ROOT = Path(__file__).resolve().parent.parent

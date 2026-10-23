@@ -1,12 +1,12 @@
 """The SVG charts: shapes, the target line, ranges and the empty state."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from price_alerts.web.charts import price_chart, sparkline, window
 from price_alerts.web.model import Point
 
-NOW = datetime(2026, 10, 21, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 21, 12, 0, tzinfo=UTC)
 
 
 def pts(*pairs):

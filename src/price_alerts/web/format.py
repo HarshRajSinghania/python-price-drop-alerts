@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import urlsplit
 
@@ -20,7 +20,7 @@ def parse_ts(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        return datetime.strptime(value, TS_FORMAT).replace(tzinfo=timezone.utc)
+        return datetime.strptime(value, TS_FORMAT).replace(tzinfo=UTC)
     except ValueError:
         return None
 

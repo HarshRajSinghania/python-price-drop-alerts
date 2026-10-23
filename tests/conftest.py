@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -60,7 +60,7 @@ class FakeMailer:
 
 
 class FixedClock:
-    def __init__(self, start: datetime = datetime(2026, 10, 14, 6, 17, tzinfo=timezone.utc)) -> None:
+    def __init__(self, start: datetime = datetime(2026, 10, 14, 6, 17, tzinfo=UTC)) -> None:
         self.now = start
 
     def __call__(self) -> datetime:

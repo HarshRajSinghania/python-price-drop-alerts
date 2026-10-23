@@ -7,7 +7,7 @@ import pytest
 
 from price_alerts.web.app import HeldMailer, Request, WebApp, parse_request
 
-from .conftest import FakeFetcher, FakeMailer, FixedClock, product_page
+from .conftest import FakeFetcher, FixedClock, product_page
 
 HOST = {"Host": "localhost:8765"}
 SHOP = "https://shop.example"

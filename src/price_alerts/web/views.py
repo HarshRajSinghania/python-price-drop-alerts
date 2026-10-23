@@ -8,7 +8,7 @@ from html import escape as esc
 
 from ..models import Watchlist
 from .assets import CSS, ICONS, TAG, mockup
-from .charts import RANGES, price_chart, sparkline
+from .charts import price_chart, sparkline
 from .format import ago, fmt_datetime, fmt_delta, fmt_money, fmt_percent, parse_ts
 from .model import FAILING, ItemView, Stats
 

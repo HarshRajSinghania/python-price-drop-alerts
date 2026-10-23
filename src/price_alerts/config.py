@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from .models import Watchlist
 
-TOKEN_ENV = "MAILTRAP_API_TOKEN"
+TOKEN_ENV = "MAILTRAP_API_TOKEN"  # noqa: S105  (the name of the env var, not a secret)
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
 

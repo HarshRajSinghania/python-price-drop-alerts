@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal as D
 
 import pytest
@@ -7,7 +7,7 @@ from price_alerts.models import Item
 from price_alerts.rules import Alert
 from price_alerts.templates import build_alert_email, drop_from_last, drop_from_target
 
-NOW = datetime(2026, 10, 14, 6, 17, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 14, 6, 17, tzinfo=UTC)
 ITEM = Item(name="Example Headphones", url="https://shop.example/h", target_price=D("200"))
 
 
