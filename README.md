@@ -34,7 +34,7 @@ A small, complete Python project that handles each of those details, ready to re
 | Needing a server or a database | The memory is two small files that the workflow commits back to your repo |
 | Not seeing the trend | A local dashboard plots every product's price history, with your target as a line |
 
-**Contents:** [Demo](#demo) · [How it works](#how-it-works) · [Features](#features) · [Stack](#stack) · [Prerequisites](#prerequisites) · [Mailtrap setup](#mailtrap-setup) · [Quick start](#quick-start) · [Screenshots](#screenshots) · [Using the dashboard](#using-the-dashboard) · [Alert rules](#alert-rules) · [Key integration points](#key-integration-points) · [Failure behavior](#failure-behavior) · [Security design](#security-design) · [Configuration](#configuration) · [Run locally](#run-locally) · [Data files](#data-files) · [Project structure](#project-structure) · [Tests](#tests) · [Deploying](#deploying-to-production) · [Scrape responsibly](#scrape-responsibly) · [Limitations](#limitations) · [FAQ](#faq)
+**Contents:** [Demo](#demo) · [How it works](#how-it-works) · [Features](#features) · [Stack](#stack) · [Prerequisites](#prerequisites) · [Mailtrap setup](#mailtrap-setup) · [Quick start](#quick-start) · [Screenshots](#screenshots) · [Using the dashboard](#using-the-dashboard) · [Alert rules](#alert-rules) · [Key integration points](#key-integration-points) · [Failure behavior](#failure-behavior) · [Security design](#security-design) · [Configuration](#configuration) · [Run locally](#run-locally) · [Data files](#data-files) · [Project structure](#project-structure) · [Tests](#tests) · [Deploying](#deploying-to-production) · [Scrape responsibly](#scrape-responsibly) · [Limitations](#limitations) · [FAQ](#faq) · [Contributing](#contributing)
 
 ## Demo
 
@@ -614,6 +614,10 @@ Most shops publish schema.org JSON-LD for Google, which is more stable than page
 ### How do I test a price alert without sending an email?
 
 Run a dry run. It fetches and evaluates everything, saves each email as HTML in `out/`, sends nothing and leaves `data/` untouched. The test suite also runs without credentials or network, using `httpx.MockTransport` and a fake mailer.
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to set up the project, run the checks and open a pull request.
 
 ## License
 
