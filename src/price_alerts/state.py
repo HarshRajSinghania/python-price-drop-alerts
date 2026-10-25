@@ -14,7 +14,7 @@ _TWO_PLACES = Decimal("0.01")
 
 
 def money(value: Decimal) -> Decimal:
-    """Normalize a price so 199, 199.0 and 199.00 are stored identically ("199.00")."""
+    """Normalize a price so 199, 199.0 and 199.00 are stored identically (\"199.00\")."""
     normalized = value.normalize()
     if normalized.as_tuple().exponent >= -2:
         return value.quantize(_TWO_PLACES)
@@ -33,6 +33,7 @@ class ItemState:
     error_alert_sent: bool = False
     last_error: str | None = None
     price_below_active: bool = False
+    price_drop_percent_active: bool = False
 
     def updated(self, **changes: Any) -> ItemState:
         return replace(self, **changes)
