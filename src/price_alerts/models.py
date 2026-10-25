@@ -10,8 +10,8 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-NotifyKind = Literal["price_below", "back_in_stock"]
-AlertKind = Literal["price_below", "back_in_stock", "watcher_error"]
+NotifyKind = Literal["price_below", "back_in_stock", "price_drop_percent"]
+AlertKind = Literal["price_below", "back_in_stock", "price_drop_percent", "watcher_error"]
 Source = Literal["json-ld", "selector"]
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -61,6 +61,7 @@ class Item(BaseModel):
     stock_selector: str | None = None
     out_of_stock_text: list[str] = Field(default_factory=lambda: ["out of stock", "sold out"])
     target_price: Decimal | None = Field(default=None, gt=0)
+    price_drop_percent: Decimal | None = Field(default=None, gt=0, le=100)
     notify_on: list[NotifyKind] | None = None
     recipients: list[str] | None = None
 
@@ -96,10 +97,12 @@ class Item(BaseModel):
             # Sensible default: a price alert if there's a target, plus stock alerts.
             self.notify_on = ["price_below", "back_in_stock"] if self.target_price is not None else ["back_in_stock"]
         if not self.notify_on:
-            raise ValueError("notify_on: must list at least one of price_below, back_in_stock")
+            raise ValueError("notify_on: must list at least one of price_below, back_in_stock, price_drop_percent")
         self.notify_on = list(dict.fromkeys(self.notify_on))
         if "price_below" in self.notify_on and self.target_price is None:
             raise ValueError("target_price: required when notify_on includes price_below")
+        if "price_drop_percent" in self.notify_on and self.price_drop_percent is None:
+            raise ValueError("price_drop_percent: required when notify_on includes price_drop_percent")
         return self
 
 
